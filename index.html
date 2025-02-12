@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Attendance System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        .camera-feed {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        #videoElement {
+            width: 100%;
+            height: 300px;
+            background-color: #666;
+        }
+        #photoCanvas {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen">
+        <!-- Navigation -->
+        <nav class="bg-teal-600 text-white p-4">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-xl font-bold">Student Attendance System</h1>
+                <button id="logoutBtn" class="hidden px-4 py-2 bg-teal-700 rounded hover:bg-teal-800">Logout</button>
+            </div>
+        </nav>
+
+        <!-- Login Section -->
+        <div id="loginSection" class="container mx-auto p-4 max-w-md">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-bold mb-4 text-center">Login</h2>
+                <form id="loginForm" class="space-y-4">
+                    <div>
+                        <label class="block text-gray-700">Username</label>
+                        <input type="text" id="username" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700">Password</label>
+                        <input type="password" id="password" class="w-full p-2 border rounded" required>
+                    </div>
+                    <button type="submit" class="w-full bg-teal-600 text-white p-2 rounded hover:bg-teal-700">Login</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Admin Section -->
+        <div id="adminSection" class="container mx-auto p-4 max-w-4xl hidden">
+            <div class="bg-white rounded-lg shadow-md p-6 mb-4">
+                <h2 class="text-2xl font-bold mb-4">Add New Student</h2>
+                <form id="studentForm" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-700">Roll Number</label>
+                            <input type="text" id="rollNumber" class="w-full p-2 border rounded" required>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700">Name</label>
+                            <input type="text" id="name" class="w-full p-2 border rounded" required>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700">Phone Number</label>
+                            <input type="tel" id="phone" class="w-full p-2 border rounded" required>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700">Email</label>
+                            <input type="email" id="email" class="w-full p-2 border rounded" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="bg-teal-600 text-white p-2 rounded hover:bg-teal-700">Add Student</button>
+                </form>
+            </div>
+            <div id="studentList" class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-bold mb-4">Student List</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full table-auto">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="px-4 py-2">Roll No</th>
+                                <th class="px-4 py-2">Name</th>
+                                <th class="px-4 py-2">Phone</th>
+                                <th class="px-4 py-2">Email</th>
+                                <th class="px-4 py-2">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Student Section -->
+        <div id="studentSection" class="container mx-auto p-4 max-w-4xl hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-2xl font-bold mb-4">Attendance Check-In</h2>
+                    <div class="camera-feed mb-4">
+                        <video id="videoElement" autoplay></video>
+                        <canvas id="photoCanvas"></canvas>
+                    </div>
+                    <div class="space-y-4">
+                        <button id="captureBtn" class="w-full bg-teal-600 text-white p-2 rounded hover:bg-teal-700">
+                            Capture Photo
+                        </button>
+                        <p id="locationStatus" class="text-center text-gray-600"></p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-2xl font-bold mb-4">Attendance Statistics</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-gray-600">Total Days Present:</p>
+                            <p id="daysPresent" class="text-2xl font-bold">0</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-600">Attendance Percentage:</p>
+                            <p id="attendancePercentage" class="text-2xl font-bold">0%</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-600">Last Check-in:</p>
+                            <p id="lastCheckIn" class="text-lg">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Geofencing coordinates
+        const geofence = {
+            north: 22.292348896700577,
+            south: 22.289636042254493,
+            east: 73.36744519883189,
+            west: 73.36459021071859
+        };
+
+        let currentUser = null;
+        let video = null;
+        let stream = null;
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginForm = document.getElementById('loginForm');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const studentForm = document.getElementById('studentForm');
+            const captureBtn = document.getElementById('captureBtn');
+
+            loginForm.addEventListener('submit', handleLogin);
+            logoutBtn.addEventListener('click', handleLogout);
+            studentForm.addEventListener('submit', handleAddStudent);
+            captureBtn.addEventListener('click', capturePhoto);
+
+            // Check if user is already logged in
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                showappropriateSection();
+            }
+        });
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (username === 'admin' && password === 'admin') {
+                currentUser = { type: 'admin' };
+            } else {
+                // Check student credentials (dummy implementation)
+                currentUser = { type: 'student', id: username };
+            }
+
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            showappropriateSection();
+        }
+
+        function handleLogout() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            localStorage.removeItem('currentUser');
+            currentUser = null;
+            showappropriateSection();
+        }
+
+        function showappropriateSection() {
+            const loginSection = document.getElementById('loginSection');
+            const adminSection = document.getElementById('adminSection');
+            const studentSection = document.getElementById('studentSection');
+            const logoutBtn = document.getElementById('logoutBtn');
+
+            loginSection.classList.add('hidden');
+            adminSection.classList.add('hidden');
+            studentSection.classList.add('hidden');
+            logoutBtn.classList.add('hidden');
+
+            if (!currentUser) {
+                loginSection.classList.remove('hidden');
+            } else {
+                logoutBtn.classList.remove('hidden');
+                if (currentUser.type === 'admin') {
+                    adminSection.classList.remove('hidden');
+                    loadStudentList();
+                } else {
+                    studentSection.classList.remove('hidden');
+                    initializeCamera();
+                    checkLocation();
+                    loadAttendanceStats();
+                }
+            }
+        }
+
+        function handleAddStudent(e) {
+            e.preventDefault();
+            const rollNumber = document.getElementById('rollNumber').value;
+            const name = document.getElementById('name').value;
+            const phone = document.getElementById('phone').value;
+            const email = document.getElementById('email').value;
+
+            // Store student data (dummy implementation - use localStorage)
+            const students = JSON.parse(localStorage.getItem('students') || '[]');
+            students.push({ rollNumber, name, phone, email });
+            localStorage.setItem('students', JSON.stringify(students));
+
+            loadStudentList();
+            e.target.reset();
+        }
+
+        function loadStudentList() {
+            const students = JSON.parse(localStorage.getItem('students') || '[]');
+            const tbody = document.getElementById('studentTableBody');
+            tbody.innerHTML = '';
+
+            students.forEach(student => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="border px-4 py-2">${student.rollNumber}</td>
+                    <td class="border px-4 py-2">${student.name}</td>
+                    <td class="border px-4 py-2">${student.phone}</td>
+                    <td class="border px-4 py-2">${student.email}</td>
+                    <td class="border px-4 py-2">
+                        <button class="text-red-600 hover:text-red-800" onclick="deleteStudent('${student.rollNumber}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function deleteStudent(rollNumber) {
+            const students = JSON.parse(localStorage.getItem('students') || '[]');
+            const updatedStudents = students.filter(s => s.rollNumber !== rollNumber);
+            localStorage.setItem('students', JSON.stringify(updatedStudents));
+            loadStudentList();
+        }
+
+        async function initializeCamera() {
+            try {
+                video = document.getElementById('videoElement');
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+            }
+        }
+
+        function checkLocation() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const { latitude, longitude } = position.coords;
+                    const isInGeofence = latitude >= geofence.south && 
+                                       latitude <= geofence.north && 
+                                       longitude >= geofence.west && 
+                                       longitude <= geofence.east;
+
+                    const locationStatus = document.getElementById('locationStatus');
+                    const captureBtn = document.getElementById('captureBtn');
+
+                    if (isInGeofence) {
+                        locationStatus.textContent = "You are within the allowed area";
+                        locationStatus.classList.remove('text-red-600');
+                        locationStatus.classList.add('text-green-600');
+                        captureBtn.disabled = false;
+                    } else {
+                        locationStatus.textContent = "You are outside the allowed area";
+                        locationStatus.classList.remove('text-green-600');
+                        locationStatus.classList.add('text-red-600');
+                        captureBtn.disabled = true;
+                    }
+                });
+            }
+        }
+
+        function capturePhoto() {
+            const canvas = document.getElementById('photoCanvas');
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Store attendance record
+            const attendance = JSON.parse(localStorage.getItem('attendance') || '[]');
+            attendance.push({
+                studentId: currentUser.id,
+                timestamp: new Date().toISOString(),
+                photo: canvas.toDataURL('image/jpeg')
+            });
+            localStorage.setItem('attendance', JSON.stringify(attendance));
+
+            loadAttendanceStats();
+        }
+
+        function loadAttendanceStats() {
+            const attendance = JSON.parse(localStorage.getItem('attendance') || '[]');
+            const studentAttendance = attendance.filter(a => a.studentId === currentUser.id);
+
+            // Calculate statistics
+            const daysPresent = studentAttendance.length;
+            const totalDays = 30; // Example: assuming 30 days in a month
+            const percentage = Math.round((daysPresent / totalDays) * 100);
+            const lastCheckIn = studentAttendance.length > 0 ? 
+                new Date(studentAttendance[studentAttendance.length - 1].timestamp).toLocaleString() : '-';
+
+            // Update UI
+            document.getElementById('daysPresent').textContent = daysPresent;
+            document.getElementById('attendancePercentage').textContent = `${percentage}%`;
+            document.getElementById('lastCheckIn').textContent = lastCheckIn;
+        }
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
